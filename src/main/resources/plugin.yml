@@ -1,0 +1,14 @@
+name: BlueSignMarkers
+version: '${project.version}'
+main: net.playwolf.bluemap.bsm.BlueSignMarkers
+api-version: 1.19
+prefix: "BlueSignMarkers"
+depend: [ BlueMap ]
+authors: [ PlayWolfYT ]
+description: Sign markers for BlueMap
+commands:
+  bluesignmarkers:
+    aliases: bsm
+    description: BlueSignMarkers command
+    permission: bluesignmarkers.command
+    usage: /bsm <reload>
