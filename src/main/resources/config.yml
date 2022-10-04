@@ -1,7 +1,7 @@
 sign-prefix:
   # What the user needs to type to create a sign marker
   user-input: "[BSM]"
-  # What the sign should display when the user finishes the sign
+  # What the sign should display when the user finishes the sign (only works, if use-prefix is set to true)
   output: "&7[&bBSM&7]"
   # Change this to the old value of "output" when changing "output".
   # This way, all signs will be updated to the new value.
@@ -11,3 +11,7 @@ message-prefix: "&7[&bBSM&7] &r"
 # How the user should be notified that the sign was created
 # Use "ACTIONBAR" for the action bar, "CHAT" for the chat, or "NONE" for nothing
 message-type: "ACTIONBAR"
+# Indicates if the sign must be a warped sign
+use-warped-sign: true
+# Indicates if the sign needs to have the prefix
+use-prefix: true

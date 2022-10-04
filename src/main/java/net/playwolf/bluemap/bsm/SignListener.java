@@ -7,6 +7,7 @@ import de.bluecolored.bluemap.api.markers.POIMarker;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.block.Sign;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -38,8 +39,10 @@ public class SignListener implements Listener {
         if (api == null) return;
         if (e.isCancelled()) return;
         FileConfiguration config = ConfigManager.getConfig();
+        if(config.getBoolean("use-warped-sign", true) && e.getBlock().getType() != Material.WARPED_SIGN && e.getBlock().getType() != Material.WARPED_WALL_SIGN) return;
 
-        if (!e.getLine(0).equalsIgnoreCase(config.getString("sign-prefix.user-input"))) return;
+        boolean usePrefix = config.getBoolean("use-prefix", true);
+        if (usePrefix && !Objects.requireNonNull(e.getLine(0)).equalsIgnoreCase(config.getString("sign-prefix.user-input"))) return;
 
         Player player = e.getPlayer();
         if (!player.hasPermission("bsm.sign.create")) {
@@ -51,7 +54,15 @@ public class SignListener implements Listener {
 
         api.getWorld(player.getWorld()).ifPresentOrElse((world) -> {
             try {
-                String label = e.getLine(1);
+                String label;
+                if (usePrefix) {
+                    label = e.getLine(1);
+                } else {
+                    label = e.getLine(0);
+                    if(label == null || label.isEmpty()) label = e.getLine(1);
+                    else label = label + "\n" + e.getLine(1);
+                }
+
                 String iconName = e.getLine(2);
                 String markerSetName = e.getLine(3);
 
@@ -85,31 +96,30 @@ public class SignListener implements Listener {
 
                 AtomicReference<Boolean> markerSetExists = new AtomicReference<>(false);
                 String finalMarkerSetName = markerSetName;
+                String finalLabel = label;
                 world.getMaps().forEach((map) -> {
                     if (markerSetExists.get()) return;
 
                     MarkerSet markerSet;
                     if (map.getMarkerSets().containsKey(finalMarkerSetName)) {
                         markerSet = map.getMarkerSets().get(finalMarkerSetName);
-                        if (markerSet.getMarkers().containsKey(label)) {
+                        if (markerSet.getMarkers().containsKey(finalLabel)) {
                             markerSetExists.set(true);
                             notifyPlayer(player, "A marker with this name already exists.");
                             return;
                         }
-                        markerSet.getMarkers().put(label, markerBuilder.build());
-                        map.getMarkerSets().put(finalMarkerSetName, markerSet);
                     } else {
                         markerSet = new MarkerSet(finalMarkerSetName, true, false);
-                        markerSet.getMarkers().put(label, markerBuilder.build());
-                        map.getMarkerSets().put(finalMarkerSetName, markerSet);
                     }
+                    markerSet.getMarkers().put(finalLabel, markerBuilder.build());
+                    map.getMarkerSets().put(finalMarkerSetName, markerSet);
 
                     MarkerStorage.saveMarkerSet(markerSet, map.getId());
                 });
 
                 if (markerSetExists.get()) return;
 
-                e.setLine(0, ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(config.getString("sign-prefix.output"))));
+                if(usePrefix) e.setLine(0, ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(config.getString("sign-prefix.output"))));
 
                 notifyPlayer(player, "Successfully created a marker!");
             } catch (IOException ex) {
@@ -133,17 +143,25 @@ public class SignListener implements Listener {
 
         Sign sign = (Sign) e.getBlock().getState();
 
+        // Check for warped sign
+        if(config.getBoolean("use-warped-sign", true) && e.getBlock().getType() != Material.WARPED_SIGN && e.getBlock().getType() != Material.WARPED_WALL_SIGN) return;
+
+        boolean usePrefix = config.getBoolean("use-prefix", true);
 
         String signPrefix = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(config.getString("sign-prefix.output")));
-        if (sign.getLine(0).equals(signPrefix)) {
+        if (!usePrefix || sign.getLine(0).equals(signPrefix)) {
             Player player = e.getPlayer();
-            if (!player.hasPermission("bsm.sign.remove")) {
-                notifyPlayer(player, "Seems like you wanted to remove a marker... Sadly you do not have permission for that.");
-                return;
-            }
+
 
             api.getWorld(player.getWorld()).ifPresentOrElse((world) -> {
-                String label = sign.getLine(1);
+                String label;
+                if (usePrefix) {
+                    label = sign.getLine(1);
+                } else {
+                    label = sign.getLine(0);
+                    if(label.isEmpty()) label = sign.getLine(1);
+                    else label = label + "\n" + sign.getLine(1);
+                }
                 String markerSetName = sign.getLine(3);
 
                 if (label.isEmpty()) {
@@ -155,16 +173,24 @@ public class SignListener implements Listener {
                     markerSetName = DEFAULT_MARKER_SET_NAME;
                 }
 
+                AtomicReference<Boolean> userHasPermission = new AtomicReference<>(true);
                 AtomicReference<Boolean> markerSetExists = new AtomicReference<>(false);
+                String finalLabel = label;
                 String finalMarkerSetName = markerSetName;
                 world.getMaps().forEach((map) -> {
                     if (markerSetExists.get()) return;
 
                     if (map.getMarkerSets().containsKey(finalMarkerSetName)) {
                         MarkerSet markerSet = map.getMarkerSets().get(finalMarkerSetName);
-                        if (markerSet.getMarkers().containsKey(label)) {
+                        if (markerSet.getMarkers().containsKey(finalLabel)) {
                             markerSetExists.set(true);
-                            markerSet.getMarkers().remove(label);
+
+                            if (!player.hasPermission("bsm.sign.remove")) {
+                                userHasPermission.set(false);
+                                return;
+                            }
+
+                            markerSet.getMarkers().remove(finalLabel);
                             map.getMarkerSets().put(finalMarkerSetName, markerSet);
 
                             if (markerSet.getMarkers().isEmpty()) {
@@ -176,6 +202,12 @@ public class SignListener implements Listener {
                         }
                     }
                 });
+
+                if(!userHasPermission.get()) {
+                    notifyPlayer(player, "Seems like you wanted to remove a marker... Sadly you do not have permission for that.");
+                    e.setCancelled(true);
+                    return;
+                }
 
                 if (markerSetExists.get()) {
                     notifyPlayer(player, "Successfully removed a marker!");
