@@ -7,7 +7,6 @@ import de.bluecolored.bluemap.api.markers.POIMarker;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.block.Sign;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -40,6 +39,8 @@ public class SignListener implements Listener {
         if (e.isCancelled()) return;
         FileConfiguration config = ConfigManager.getConfig();
 
+        if (!e.getLine(0).equalsIgnoreCase(config.getString("sign-prefix.user-input"))) return;
+
         Player player = e.getPlayer();
         if (!player.hasPermission("bsm.sign.create")) {
             notifyPlayer(player, "Seems like you wanted to create a marker... Sadly you do not have permission for that.");
@@ -47,7 +48,6 @@ public class SignListener implements Listener {
         }
 
 
-        if (!e.getLine(0).equalsIgnoreCase(config.getString("sign-prefix.user-input"))) return;
 
         api.getWorld(player.getWorld()).ifPresentOrElse((world) -> {
             try {
